@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Islas de Calor - Provincia de Esmeraldas (2015-2024)</title>
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+html,body{
+    width:100%;
+    height:100%;
+    font-family:Arial, Helvetica, sans-serif;
+    background:#f4f6f9;
+}
+
+#app{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+}
+
+header{
+    background:#1f2937;
+    color:white;
+    padding:12px;
+}
+
+header h1{
+    font-size:20px;
+}
+
+header p{
+    font-size:13px;
+    opacity:.8;
+}
+
+#toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    padding:10px;
+    background:white;
+    border-bottom:1px solid #ddd;
+}
+
+.yearBtn{
+    padding:8px 12px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    background:#e5e7eb;
+    transition:.2s;
+}
+
+.yearBtn:hover{
+    background:#cbd5e1;
+}
+
+.active{
+    background:#2563eb !important;
+    color:white;
+    font-weight:bold;
+}
+
+#mapWrap{
+    position:relative;
+    flex:1;
+}
+
+#map{
+    width:100%;
+    height:100%;
+}
+
+#loading{
+    position:absolute;
+    inset:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:rgba(255,255,255,.85);
+    z-index:1000;
+    font-size:18px;
+}
+
+#legend{
+    position:absolute;
+    bottom:20px;
+    right:10px;
+    z-index:999;
+    background:white;
+    padding:10px;
+    border-radius:8px;
+    box-shadow:0 0 10px rgba(0,0,0,.2);
+    min-width:150px;
+}
+
+#legendTitle{
+    font-weight:bold;
+    margin-bottom:6px;
+}
+
+#legendBar{
+    height:12px;
+    border-radius:4px;
+    margin-bottom:5px;
+    background:linear-gradient(
+        to right,
+        #0000ff,
+        #00ffff,
+        #00ff80,
+        #ffff00,
+        #ff8000,
+        #ff0000
+    );
+}
+
+#legendLabels{
+    display:flex;
+    justify-content:space-between;
+    font-size:11px;
+}
+
+#info{
+    background:white;
+    padding:10px;
+    border-top:1px solid #ddd;
+    font-size:14px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+<header>
+    <h1>Islas de Calor - Provincia de Esmeraldas</h1>
+    <p>Temperatura Superficial Landsat (2015–2024)</p>
+</header>
+
+<div id="toolbar"></div>
+
+<div id="mapWrap">
+
+    <div id="loading">
+        Seleccione un año...
+    </div>
+
+    <div id="map"></div>
+
+    <div id="legend">
+
+        <div id="legendTitle">
+            LST (°C)
+        </div>
+
+        <div id="legendBar"></div>
+
+        <div id="legendLabels">
+            <span id="minVal">-</span>
+            <span id="midVal">-</span>
+            <span id="maxVal">-</span>
+        </div>
+
+    </div>
+
+</div>
+
+<div id="info">
+Seleccione un año para visualizar el mapa.
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script src="https://unpkg.com/georaster@1.6.0/dist/georaster.browser.bundle.js"></script>
+
+<script src="https://unpkg.com/georaster-layer-for-leaflet@4.1.2/dist/georaster-layer-for-leaflet.min.js"></script>
+
+<script>
+
+const YEARS = [
+2015,2016,2017,2018,2019,
+2020,2021,2022,2023,2024
+];
+
+let currentLayer = null;
+
+const map = L.map('map').setView(
+    [0.95,-79.65],
+    8
+);
+
+L.tileLayer(
+'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+{
+    attribution:'© OpenStreetMap',
+    maxZoom:19
+}
+).addTo(map);
+
+const toolbar = document.getElementById("toolbar");
+
+YEARS.forEach(year=>{
+
+    const btn = document.createElement("button");
+
+    btn.className = "yearBtn";
+
+    btn.innerText = year;
+
+    btn.onclick = () =>
+        loadRaster(
+            `LST_${year}.tif`,
+            year,
+            btn
+        );
+
+    toolbar.appendChild(btn);
+
+});
+
+function activateButton(btn){
+
+    document
+    .querySelectorAll(".yearBtn")
+    .forEach(b=>b.classList.remove("active"));
+
+    btn.classList.add("active");
+
+}
+
+function colorScale(t){
+
+    const stops=[
+        [0,0,255],
+        [0,255,255],
+        [0,255,128],
+        [255,255,0],
+        [255,128,0],
+        [255,0,0]
+    ];
+
+    const n=stops.length-1;
+
+    const i=Math.min(
+        Math.floor(t*n),
+        n-1
+    );
+
+    const f=t*n-i;
+
+    const a=stops[i];
+    const b=stops[i+1];
+
+    return [
+        Math.round(a[0]+(b[0]-a[0])*f),
+        Math.round(a[1]+(b[1]-a[1])*f),
+        Math.round(a[2]+(b[2]-a[2])*f)
+    ];
+}
+
+async function loadRaster(
+    file,
+    year,
+    btn
+){
+
+    activateButton(btn);
+
+    document
+    .getElementById("loading")
+    .style.display="flex";
+
+    if(currentLayer){
+        map.removeLayer(currentLayer);
+    }
+
+    try{
+
+        const response=await fetch(file);
+
+        if(!response.ok){
+            throw new Error(
+                "No se encontró " + file
+            );
+        }
+
+        const arrayBuffer=
+            await response.arrayBuffer();
+
+        const georaster=
+            await parseGeoraster(arrayBuffer);
+
+        let values=[];
+
+        const band=
+            georaster.values[0];
+
+        for(let r=0;r<band.length;r++){
+
+            for(let c=0;c<band[r].length;c++){
+
+                const v=band[r][c];
+
+                if(
+                    v!==null &&
+                    !isNaN(v) &&
+                    isFinite(v)
+                ){
+                    values.push(v);
+                }
+
+            }
+        }
+
+        values.sort((a,b)=>a-b);
+
+        const min=
+            values[Math.floor(values.length*0.02)];
+
+        const max=
+            values[Math.floor(values.length*0.98)];
+
+        const mid=(min+max)/2;
+
+        document.getElementById("minVal")
+        .innerText=min.toFixed(1);
+
+        document.getElementById("midVal")
+        .innerText=mid.toFixed(1);
+
+        document.getElementById("maxVal")
+        .innerText=max.toFixed(1);
+
+        const range=max-min;
+
+        currentLayer=
+        new GeoRasterLayer({
+
+            georaster:georaster,
+
+            opacity:0.85,
+
+            resolution:256,
+
+            pixelValuesToColorFn:(vals)=>{
+
+                const v=vals[0];
+
+                if(
+                    v===null ||
+                    isNaN(v)
+                ) return null;
+
+                const t=Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        (v-min)/range
+                    )
+                );
+
+                const rgb=
+                    colorScale(t);
+
+                return `rgba(
+                    ${rgb[0]},
+                    ${rgb[1]},
+                    ${rgb[2]},
+                    0.85
+                )`;
+
+            }
+
+        });
+
+        currentLayer.addTo(map);
+
+        map.fitBounds(
+            currentLayer.getBounds()
+        );
+
+        document
+        .getElementById("info")
+        .innerHTML=
+        `<b>Año ${year}</b><br>
+        Temperatura superficial terrestre (LST)
+        obtenida de Landsat.`;
+
+    }
+
+    catch(error){
+
+        alert(
+            "Error cargando:\n" +
+            file +
+            "\n\n" +
+            error.message
+        );
+
+    }
+
+    document
+    .getElementById("loading")
+    .style.display="none";
+
+}
+
+</script>
+
+</body>
+</html>
