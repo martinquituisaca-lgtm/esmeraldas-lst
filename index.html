@@ -197,7 +197,8 @@ const YEARS = [
 2015,2016,2017,2018,2019,
 2020,2021,2022,2023,2024
 ];
-
+const BASE =
+'https://martinquituisaca-lgtm.github.io/esmeraldas-lst/';
 let currentLayer = null;
 
 const map = L.map('map').setView(
@@ -292,7 +293,7 @@ async function loadRaster(
 
     try{
 
-        const response=await fetch(file);
+        const response = await fetch(BASE + file);
 
         if(!response.ok){
             throw new Error(
