@@ -1,10 +1,1 @@
-[LST_2015.tif](https://github.com/user-attachments/files/29062054/LST_2015.tif)
-[LST_2024.tif](https://github.com/user-attachments/files/29062088/LST_2024.tif)
-[LST_2023.tif](https://github.com/user-attachments/files/29062083/LST_2023.tif)
-[LST_2022.tif](https://github.com/user-attachments/files/29062076/LST_2022.tif)
-[LST_2021.tif](https://github.com/user-attachments/files/29062073/LST_2021.tif)
-[LST_2020.tif](https://github.com/user-attachments/files/29062071/LST_2020.tif)
-[LST_2019.tif](https://github.com/user-attachments/files/29062068/LST_2019.tif)
-[LST_2018.tif](https://github.com/user-attachments/files/29062064/LST_2018.tif)
-[LST_2017.tif](https://github.com/user-attachments/files/29062059/LST_2017.tif)
-[LST_2016.tif](https://github.com/user-attachments/files/29062056/LST_2016.tif)
+
